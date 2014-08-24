@@ -13,14 +13,15 @@ require("debian.menu")
 
 require('delightful.widgets.datetime')
 
-require("battery")
+require("base")
 
-
+awful.util.spawn_with_shell("xset dpms")
+awful.util.spawn_with_shell("xset s off")
 
 -- Which widgets to install?
 -- This is the order the widgets appear in the wibox.
 install_delightful = {
-    delightful.widgets.datetime
+    ---delightful.widgets.datetime
 }
 -- Widget configuration
 delightful_config = {
@@ -114,29 +115,42 @@ myawesomemenu = {
    { "restart", "gksudo reboot" }
 }
 
-mymainmenu = awful.menu({ items = { 
-
-   { "chrome", "google-chrome" },
-   { "files", "nautilus" },				
-{ "awesome", myawesomemenu, beautiful.awesome_icon },
-                                    { "Debian", debian.menu.Debian_menu.Debian },
-                                    { "open terminal", terminal }
-                                  }
-                        })
+mymainmenu = awful.menu({ 
+	items = { 
+		{ "chrome", "google-chrome" },
+		{ "terminal", terminal },
+		{ "files", "nautilus" },				
+		{ "awesome", myawesomemenu, beautiful.awesome_icon },
+		{ "Debian", debian.menu.Debian_menu.Debian }
+	}
+})
 
 mylauncher = awful.widget.launcher({ image = image(beautiful.awesome_icon),
                                      menu = mymainmenu })
 -- }}}
 
 -- {{{ Wibox
--- Create a textclock widget
-mytextclock = awful.widget.textclock({ align = "bottom" })
-
 -- Create a systray
 mysystray = widget({ type = "systray" })
 
-
 batterywidget = widget({type = "textbox", name = "batterywidget", align = "right" })
+clockwidget = widget({type = "textbox", name = "batterywidget", align = "right" })
+volumewidget = widget({type = "textbox", name = "volumewidget", align = "right" })
+require('naughty')
+local battwid = nil
+batterywidget:add_signal('mouse::enter', function ()
+	if battwid==nil then
+        	battwid =naughty.notify({ text=tostring(timeLeft).." min", icon=""
+               , position = "top_right" })
+	end
+  end)
+batterywidget:add_signal('mouse::leave', function ()
+	if battwid~=nil then
+        	naughty.destroy(battwid)
+		battwid = nil
+	end
+  end)
+
 
 -- Prepare the container that is used when constructing the wibox
 local delightful_container = { widgets = {}, icons = {} }
@@ -224,7 +238,8 @@ for s = 1, screen.count() do
                                           end, mytasklist.buttons)
 
     -- Create the wibox
-    mywibox[s] = awful.wibox({ position = "top", screen = s })
+    mywibox[s] = awful.wibox({ position = "top", screen = s , bg =
+beautiful.wibox_bg_normal})
     -- Add widgets to the wibox - order matters
     local widgets_front = {
 	    {
@@ -245,6 +260,8 @@ for s = 1, screen.count() do
 	end
 	local widgets_end = {
   	    batterywidget,
+		volumewidget,
+		clockwidget,
 	    s == 1 and mysystray or nil,
 	    mytasklist[s],
 	    layout = awful.widget.layout.horizontal.rightleft
@@ -252,6 +269,20 @@ for s = 1, screen.count() do
 	mywibox[s].widgets = awful.util.table.join(widgets_front, widgets_middle, widgets_end)
 end
 -- }}}
+
+----------hide menu-------------
+for s = 1, screen.count() do
+	geom=mywibox[s]:geometry()
+
+	awful.hooks.timer.register(1, function ()
+	    if mouse.coords ().y < 1 or (mywibox[s].visible and mouse.coords ().y < 21) then
+	       mywibox[s].visible=true
+	    else
+	       mywibox[s].visible=false
+	    end
+	end)
+
+end
 
 -- {{{ Mouse bindings
 root.buttons(awful.util.table.join(
@@ -323,8 +354,21 @@ globalkeys = awful.util.table.join(
 
 clientkeys = awful.util.table.join(
 
-awful.key({ }, "XF86AudioMute", function () awful.util.spawn("amixer set Master toggle") end),awful.key({ }, "XF86AudioRaiseVolume", function () awful.util.spawn("amixer set Master 2%+") end),
-awful.key({ }, "XF86AudioLowerVolume", function () awful.util.spawn("amixer set Master 2%-") end),
+awful.key({ }, "XF86AudioMute", 
+	function () 
+		awful.util.spawn("amixer set Master toggle") 
+
+	end),
+awful.key({ }, "XF86AudioRaiseVolume", 
+	function () 
+		awful.util.spawn("amixer set Master 2%+") 
+		volumewidget.text = volumeInfo()
+	end),
+awful.key({ }, "XF86AudioLowerVolume", 
+	function () 
+		awful.util.spawn("amixer set Master 2%-") 
+		volumewidget.text = volumeInfo()	
+	end),
 
 
     awful.key({ modkey,           }, "f",      function (c) c.fullscreen = not c.fullscreen  end),
@@ -404,7 +448,7 @@ awful.rules.rules = {
                      focus = true,
                      keys = clientkeys,
                      buttons = clientbuttons } },
-    { rule = { class = "MPlayer" },
+    { rule = { class = "vlc" },
       properties = { floating = true } },
     { rule = { class = "pinentry" },
       properties = { floating = true } },
@@ -447,9 +491,12 @@ client.add_signal("focus", function(c) c.border_color = beautiful.border_focus e
 client.add_signal("unfocus", function(c) c.border_color = beautiful.border_normal end)
 -- }}}
 
-
+volumewidget.text = volumeInfo()
 batterywidget.text = batteryInfo("BAT0")
-awful.hooks.timer.register(60, function()
+clockwidget.text = clockInfo()
+awful.hooks.timer.register(30, function()
     batterywidget.text = batteryInfo("BAT0")
+    clockwidget.text = clockInfo()
+	
   end)
 
