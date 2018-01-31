@@ -1,6 +1,8 @@
 -- This function returns a formatted string with the current battery status. It
 -- can be used to populate a text widget in the awesome window manager. Based
 -- on the "Gigamo Battery Widget" found in the wiki at awesome.naquadah.org
+--New line
+
 
 local naughty = require("naughty")
 local beautiful = require("beautiful")
